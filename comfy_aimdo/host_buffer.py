@@ -18,8 +18,15 @@ class HostBuffer:
         if not self._ptr:
             raise RuntimeError("CUDA host buffer allocation failed")
 
-    def get_raw_address(self):
-        return int(self._ptr)
+    def get_raw_address(self, size=0, offset=0):
+        offset = int(offset)
+        size = int(size)
+
+        if offset + size > self.size:
+            # FIXME: grow the pinned allocation to offset + size and update self.size.
+            raise NotImplementedError("FIXME implement growable HostBuffer")
+
+        return int(self._ptr) + offset
 
     def __del__(self):
         ptr = getattr(self, "_ptr", None)
