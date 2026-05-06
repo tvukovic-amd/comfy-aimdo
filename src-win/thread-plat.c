@@ -1,4 +1,4 @@
-#include "plat-thread.h"
+#include "thread-plat.h"
 
 #include <stdlib.h>
 

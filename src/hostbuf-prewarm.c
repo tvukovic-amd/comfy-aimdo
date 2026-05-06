@@ -1,5 +1,5 @@
 #include "plat.h"
-#include "plat-thread.h"
+#include "thread-plat.h"
 #include "hostbuf-plat.h"
 #include "hostbuf-prewarm.h"
 
@@ -53,6 +53,7 @@ static THREAD_FUNC hostbuf_prewarm_worker(void *arg) {
         }
         mutex_unlock(g_prewarm_pool.mutex);
     }
+    return 0;
 }
 
 static bool hostbuf_prewarm_pool_init(void) {

@@ -1,5 +1,5 @@
 #include "plat.h"
-#include "plat-thread.h"
+#include "thread-plat.h"
 #include "xfer-file.h"
 
 #define XFER_FILE_THREADS 6
@@ -152,4 +152,3 @@ void xfer_file_cleanup(void) {
     mutex_destroy(g_xfer_file_reader.mutex);
     memset(&g_xfer_file_reader, 0, sizeof(g_xfer_file_reader));
 }
-
