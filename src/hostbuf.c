@@ -38,6 +38,8 @@ static bool hostbuf_grow(HostBuffer *hostbuf, uint64_t size) {
         if (!hostbuf->base_address) {
             return false;
         }
+        log(VERBOSE, "%s: reserved base=%p reserved_size=%llu\n", __func__,
+            hostbuf->base_address, (ull)hostbuf->reserved_size);
     }
     if (target_committed > hostbuf->reserved_size) {
         log(ERROR, "%s: requested %llu bytes beyond reserved host buffer %llu\n", __func__,
@@ -47,21 +49,31 @@ static bool hostbuf_grow(HostBuffer *hostbuf, uint64_t size) {
     tail_size = (size_t)(target_committed - hostbuf->committed_size);
     prewarm_start = MAX(hostbuf->committed_size, size);
 
-    if (tail_size &&
-        !hostbuf_commit_address_space((char *)hostbuf->base_address + hostbuf->committed_size, tail_size)) {
-        return false;
+    if (tail_size) {
+        void *commit_ptr = (char *)hostbuf->base_address + hostbuf->committed_size;
+
+        log(VERBOSE, "%s: commit base=%p offset=%llu size=%zu target_committed=%llu\n",
+            __func__, commit_ptr, (ull)hostbuf->committed_size, tail_size,
+            (ull)target_committed);
+        if (!hostbuf_commit_address_space(commit_ptr, tail_size)) {
+            return false;
+        }
     }
     if (!CHECK_CU(cuMemHostRegister((char *)hostbuf->base_address + hostbuf->size,
                                     (size_t)(size - hostbuf->size), 0))) {
         goto fail_decommit;
     }
-    if (tail_size && !hostbuf_prewarm_start((char *)hostbuf->base_address + prewarm_start,
-                                            target_committed - prewarm_start)) {
-        goto fail_unregister;
+    if (tail_size) {
+        if (!hostbuf_prewarm_start((char *)hostbuf->base_address + prewarm_start,
+                                   target_committed - prewarm_start)) {
+            goto fail_unregister;
+        }
     }
     hostbuf->committed_size = target_committed;
 
     hostbuf->size = size;
+    log(VERBOSE, "%s: result hostbuf=%p size=%llu committed=%llu\n", __func__,
+        (void *)hostbuf, (ull)hostbuf->size, (ull)hostbuf->committed_size);
     return true;
 
 fail_unregister:
@@ -78,6 +90,9 @@ static bool hostbuf_truncate_impl(HostBuffer *hostbuf, uint64_t size) {
     uint64_t old_committed = hostbuf->committed_size;
     uint64_t new_committed = ALIGN_UP(size, page_size);
 
+    log(VERBOSE, "%s: hostbuf=%p base=%p truncate_to=%llu old_size=%llu old_committed=%llu new_committed=%llu\n",
+        __func__, (void *)hostbuf, hostbuf->base_address, (ull)size,
+        (ull)hostbuf->size, (ull)old_committed, (ull)new_committed);
     if (size >= hostbuf->size ||
         !hostbuf_prewarm_start(NULL, 0) ||
         !CHECK_CU(cuMemHostUnregister((char *)hostbuf->base_address + size)) ||
@@ -93,11 +108,15 @@ static bool hostbuf_truncate_impl(HostBuffer *hostbuf, uint64_t size) {
     hostbuf->size = size;
     hostbuf->committed_size = old_committed;
     if (!size && hostbuf->base_address) {
+        log(VERBOSE, "%s: release base=%p reserved_size=%llu\n", __func__,
+            hostbuf->base_address, (ull)hostbuf->reserved_size);
         hostbuf_release_address_space(hostbuf->base_address, (size_t)hostbuf->reserved_size);
         hostbuf->base_address = NULL;
         hostbuf->committed_size = 0;
         hostbuf->reserved_size = 0;
     }
+    log(VERBOSE, "%s: result hostbuf=%p size=%llu committed=%llu\n", __func__,
+        (void *)hostbuf, (ull)hostbuf->size, (ull)hostbuf->committed_size);
     return true;
 }
 
@@ -109,6 +128,7 @@ void *hostbuf_allocate(uint64_t prewarm) {
         return NULL;
     }
     hostbuf->prewarm = prewarm;
+    log(VERBOSE, "%s: hostbuf=%p prewarm=%llu\n", __func__, (void *)hostbuf, (ull)prewarm);
     return hostbuf;
 }
 
@@ -119,6 +139,9 @@ void hostbuf_free(void *hostbuf_ptr) {
     if (!hostbuf) {
         return;
     }
+    log(VERBOSE, "%s: hostbuf=%p base=%p size=%llu committed=%llu reserved=%llu\n", __func__,
+        (void *)hostbuf, hostbuf->base_address, (ull)hostbuf->size,
+        (ull)hostbuf->committed_size, (ull)hostbuf->reserved_size);
     hostbuf_truncate_impl(hostbuf, 0);
     free(hostbuf);
 }
@@ -163,6 +186,10 @@ void *hostbuf_extend(void *hostbuf_ptr, uint64_t size, bool reallocate, int64_t 
     }
     hostbuf->last_chunk_size = hostbuf->size - offset;
     *size_delta = (int64_t)(hostbuf->size - old_size);
+    log(VERBOSE, "%s: hostbuf=%p request_size=%llu reallocate=%d offset=%llu ptr=%p size_delta=%lld result_size=%llu committed=%llu\n",
+        __func__, (void *)hostbuf, (ull)size, reallocate, (ull)offset,
+        (char *)hostbuf->base_address + offset, (long long)*size_delta,
+        (ull)hostbuf->size, (ull)hostbuf->committed_size);
     return (char *)hostbuf->base_address + offset;
 }
 
@@ -181,5 +208,6 @@ bool hostbuf_truncate(void *hostbuf_ptr, uint64_t size) {
     if (!hostbuf) {
         return false;
     }
+    log(VERBOSE, "%s: hostbuf=%p size=%llu\n", __func__, (void *)hostbuf, (ull)size);
     return hostbuf_truncate_impl(hostbuf, size);
 }
