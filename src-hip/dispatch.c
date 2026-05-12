@@ -12,6 +12,8 @@ AimdoCudaDispatch g_cuda;
 PFN_deviceGetProperties g_device_get_properties;
 
 typedef CUresult (CUDAAPI *PFN_hipHostMalloc)(void **pp, size_t bytesize, unsigned int flags);
+typedef CUresult (CUDAAPI *PFN_hipHostRegister)(void *p, size_t bytesize, unsigned int flags);
+typedef CUresult (CUDAAPI *PFN_hipHostUnregister)(void *p);
 
 typedef struct {
     void **slot;
@@ -19,6 +21,8 @@ typedef struct {
 } DispatchSymbol;
 
 static PFN_hipHostMalloc g_hip_host_malloc;
+static PFN_hipHostRegister g_hip_host_register;
+static PFN_hipHostUnregister g_hip_host_unregister;
 
 static CUresult CUDAAPI aimdo_hip_mem_alloc_host(void **pp, size_t bytesize) {
     return g_hip_host_malloc(pp, bytesize, 0);
@@ -38,6 +42,8 @@ static const DispatchSymbol dispatch_symbols[] = {
     { (void **)&g_cuda.p_cuMemAllocAsync, "hipMallocAsync" },
     { (void **)&g_cuda.p_cuMemFreeAsync, "hipFreeAsync" },
     { (void **)&g_hip_host_malloc, "hipHostMalloc" },
+    { (void **)&g_hip_host_register, "hipHostRegister" },
+    { (void **)&g_hip_host_unregister, "hipHostUnregister" },
     { (void **)&g_cuda.p_cuMemFreeHost, "hipHostFree" },
     { (void **)&g_cuda.p_cuMemAddressReserve, "hipMemAddressReserve" },
     { (void **)&g_cuda.p_cuMemAddressFree, "hipMemAddressFree" },
@@ -90,6 +96,8 @@ bool aimdo_cuda_runtime_init(void) {
     }
 
     g_cuda.p_cuMemAllocHost = aimdo_hip_mem_alloc_host;
+    g_cuda.p_cuMemHostRegister = g_hip_host_register;
+    g_cuda.p_cuMemHostUnregister = g_hip_host_unregister;
     g_cuda.p_cuMemAllocAsync_ptsz = g_cuda.p_cuMemAllocAsync;
     g_cuda.p_cuMemFreeAsync_ptsz = g_cuda.p_cuMemFreeAsync;
 
@@ -121,6 +129,8 @@ void aimdo_cuda_runtime_cleanup(void) {
     memset(&g_cuda, 0, sizeof(g_cuda));
     g_device_get_properties = NULL;
     g_hip_host_malloc = NULL;
+    g_hip_host_register = NULL;
+    g_hip_host_unregister = NULL;
 
     if (!g_hip_module) {
         return;

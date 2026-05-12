@@ -24,6 +24,9 @@ typedef CUresult (CUDAAPI *PFN_cuMemAllocAsync)(CUdeviceptr *dptr, size_t bytesi
 typedef CUresult (CUDAAPI *PFN_cuMemFreeAsync)(CUdeviceptr dptr, CUstream hStream);
 typedef CUresult (CUDAAPI *PFN_cuMemAllocHost)(void **pp, size_t bytesize);
 typedef CUresult (CUDAAPI *PFN_cuMemFreeHost)(void *p);
+typedef CUresult (CUDAAPI *PFN_cuMemHostRegister)(void *p, size_t bytesize,
+                                                 unsigned int flags);
+typedef CUresult (CUDAAPI *PFN_cuMemHostUnregister)(void *p);
 typedef CUresult (CUDAAPI *PFN_cuMemAddressReserve)(CUdeviceptr *ptr, size_t size,
                                                     size_t alignment, CUdeviceptr addr,
                                                     unsigned long long flags);
@@ -60,6 +63,8 @@ typedef struct AimdoCudaDispatch {
     PFN_cuMemFreeAsync p_cuMemFreeAsync_ptsz;
     PFN_cuMemAllocHost p_cuMemAllocHost;
     PFN_cuMemFreeHost p_cuMemFreeHost;
+    PFN_cuMemHostRegister p_cuMemHostRegister;
+    PFN_cuMemHostUnregister p_cuMemHostUnregister;
     PFN_cuMemAddressReserve p_cuMemAddressReserve;
     PFN_cuMemAddressFree p_cuMemAddressFree;
     PFN_cuMemCreate p_cuMemCreate;

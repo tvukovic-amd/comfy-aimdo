@@ -1,5 +1,6 @@
 #include "plat.h"
 #include "aimdo-time.h"
+#include "xfer-file.h"
 
 #if !defined(_WIN32) && !defined(_WIN64) && !defined(__HIP_PLATFORM_AMD__)
 #define INTEGRATED_RAM_HEADROOM_MIN (2ULL * G)
@@ -93,16 +94,22 @@ bool plat_init() {
     if (!aimdo_cuda_runtime_init()) {
         return false;
     }
+    if (!xfer_file_init()) {
+        aimdo_cuda_runtime_cleanup();
+        return false;
+    }
     if (aimdo_setup_hooks()) {
         return true;
     }
 
+    xfer_file_cleanup();
     aimdo_cuda_runtime_cleanup();
     return false;
 }
 
 SHARED_EXPORT
 void plat_cleanup() {
+    xfer_file_cleanup();
     aimdo_teardown_hooks();
     aimdo_cuda_runtime_cleanup();
 }

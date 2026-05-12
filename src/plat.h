@@ -80,6 +80,8 @@ void *aimdo_find_loaded_module(const char *const *libraries, size_t library_coun
 #define cuMemGetInfo                g_cuda.p_cuMemGetInfo
 #define cuMemAllocHost              g_cuda.p_cuMemAllocHost
 #define cuMemFreeHost               g_cuda.p_cuMemFreeHost
+#define cuMemHostRegister           g_cuda.p_cuMemHostRegister
+#define cuMemHostUnregister         g_cuda.p_cuMemHostUnregister
 #define cuMemAddressReserve         g_cuda.p_cuMemAddressReserve
 #define cuMemAddressFree            g_cuda.p_cuMemAddressFree
 #define cuMemCreate                 g_cuda.p_cuMemCreate

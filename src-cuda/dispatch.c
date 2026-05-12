@@ -40,6 +40,8 @@ static const DispatchSymbol dispatch_symbols[] = {
     { (void **)&g_cuda.p_cuMemFreeAsync_ptsz, "cuMemFreeAsync", CU_GET_PROC_ADDRESS_PER_THREAD_DEFAULT_STREAM },
     { (void **)&g_cuda.p_cuMemAllocHost, "cuMemAllocHost", CU_GET_PROC_ADDRESS_LEGACY_STREAM },
     { (void **)&g_cuda.p_cuMemFreeHost, "cuMemFreeHost", CU_GET_PROC_ADDRESS_LEGACY_STREAM },
+    { (void **)&g_cuda.p_cuMemHostRegister, "cuMemHostRegister", CU_GET_PROC_ADDRESS_LEGACY_STREAM },
+    { (void **)&g_cuda.p_cuMemHostUnregister, "cuMemHostUnregister", CU_GET_PROC_ADDRESS_LEGACY_STREAM },
     { (void **)&g_cuda.p_cuMemAddressReserve, "cuMemAddressReserve", CU_GET_PROC_ADDRESS_LEGACY_STREAM },
     { (void **)&g_cuda.p_cuMemAddressFree, "cuMemAddressFree", CU_GET_PROC_ADDRESS_LEGACY_STREAM },
     { (void **)&g_cuda.p_cuMemCreate, "cuMemCreate", CU_GET_PROC_ADDRESS_LEGACY_STREAM },
