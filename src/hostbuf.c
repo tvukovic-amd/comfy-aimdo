@@ -19,7 +19,7 @@ static bool hostbuf_grow(HostBuffer *hostbuf, uint64_t size) {
     uint64_t target_committed = ALIGN_UP(size + hostbuf->prewarm, page_size);
 
     size_t tail_size;
-    size_t prewarm_start;
+    uint64_t prewarm_start;
 
     if (size <= hostbuf->size) {
         return true;
@@ -49,6 +49,10 @@ static bool hostbuf_grow(HostBuffer *hostbuf, uint64_t size) {
     tail_size = (size_t)(target_committed - hostbuf->committed_size);
     prewarm_start = MAX(hostbuf->committed_size, size);
 
+    if (!hostbuf_prewarm_join()) {
+        return false;
+    }
+
     if (tail_size) {
         void *commit_ptr = (char *)hostbuf->base_address + hostbuf->committed_size;
 
@@ -59,11 +63,17 @@ static bool hostbuf_grow(HostBuffer *hostbuf, uint64_t size) {
             return false;
         }
     }
+    if (size > hostbuf->committed_size &&
+        (!hostbuf_prewarm_start((char *)hostbuf->base_address + hostbuf->committed_size,
+                                (size_t)(size - hostbuf->committed_size)) ||
+         !hostbuf_prewarm_join())) {
+        goto fail_decommit;
+    }
     if (!CHECK_CU(cuMemHostRegister((char *)hostbuf->base_address + hostbuf->size,
                                     (size_t)(size - hostbuf->size), 0))) {
         goto fail_decommit;
     }
-    if (tail_size) {
+    if (target_committed > prewarm_start) {
         if (!hostbuf_prewarm_start((char *)hostbuf->base_address + prewarm_start,
                                    target_committed - prewarm_start)) {
             goto fail_unregister;
