@@ -4,6 +4,7 @@
 #include <stddef.h>
 
 size_t hostbuf_page_size(void);
+size_t hostbuf_reserve_granularity(void);
 
 void *hostbuf_reserve_address_space(size_t size);
 

@@ -14,6 +14,10 @@ size_t hostbuf_page_size(void) {
     return page_size;
 }
 
+size_t hostbuf_reserve_granularity(void) {
+    return hostbuf_page_size();
+}
+
 void *hostbuf_reserve_address_space(size_t size) {
     void *ptr = mmap(NULL, size, PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_NORESERVE, -1, 0);
 

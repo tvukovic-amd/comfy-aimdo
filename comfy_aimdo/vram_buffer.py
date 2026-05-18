@@ -21,6 +21,7 @@ if lib is not None:
     lib.vrambuf_get.restype = ctypes.c_uint64
 
     lib.vrambuf_destroy.argtypes = [ctypes.c_void_p]
+    lib.vrambuf_destroy.restype = ctypes.c_bool
 
 
 class VRAMBuffer:
@@ -54,5 +55,6 @@ class VRAMBuffer:
     def __del__(self):
         ptr = getattr(self, "_ptr", None)
         if ptr:
-            lib.vrambuf_destroy(ptr)
+            if not lib.vrambuf_destroy(ptr):
+                raise RuntimeError("VRAM destroy failed: device context unavailable")
             self._ptr = None

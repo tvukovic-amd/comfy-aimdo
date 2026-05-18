@@ -9,7 +9,7 @@ if os.name == "nt":
     import msvcrt
 
 if lib is not None:
-    lib.hostbuf_allocate.argtypes = [ctypes.c_uint64]
+    lib.hostbuf_allocate.argtypes = [ctypes.c_uint64, ctypes.c_uint64]
     lib.hostbuf_allocate.restype = ctypes.c_void_p
 
     lib.hostbuf_free.argtypes = [ctypes.c_void_p]
@@ -22,6 +22,7 @@ if lib is not None:
 
     lib.hostbuf_read_file_slice.argtypes = [
         ctypes.c_void_p,
+        ctypes.c_int,     # device
         ctypes.c_uint64,  # handle / fd
         ctypes.c_uint64,  # file_offset
         ctypes.c_uint64,  # size
@@ -50,11 +51,12 @@ def _file_handle(file_obj):
 
 
 class HostBuffer:
-    def __init__(self, size, prewarm=0):
+    def __init__(self, size, prewarm=0, max_grow_size=0):
         size = int(size)
+        max_mmap_size = max(size, int(max_grow_size))
         self.size = 0
-        self.prewarm = int(prewarm)
-        self._ptr = lib.hostbuf_allocate(self.prewarm)
+        self.prewarm = max(0, int(prewarm))
+        self._ptr = lib.hostbuf_allocate(self.prewarm, max_mmap_size)
         if not self._ptr:
             raise RuntimeError("HostBuffer allocation failed")
         if size:
@@ -73,8 +75,9 @@ class HostBuffer:
             raise RuntimeError("HostBuffer.extend failed")
         return int(ptr) if ptr else 0
 
-    def read_file_slice(self, file_obj, file_offset, size, offset=0, stream=0, device_ptr=0):
-        if not lib.hostbuf_read_file_slice(self._ptr, _file_handle(file_obj),
+    def read_file_slice(self, file_obj, file_offset, size, offset=0, stream=0, device_ptr=0, device=-1):
+        device = -1 if device is None else int(device)
+        if not lib.hostbuf_read_file_slice(self._ptr, device, _file_handle(file_obj),
                                            int(file_offset), int(size), int(offset),
                                            int(stream) or None, int(device_ptr)):
             raise RuntimeError("HostBuffer.read_file_slice failed")

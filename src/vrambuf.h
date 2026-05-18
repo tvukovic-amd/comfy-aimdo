@@ -19,7 +19,7 @@ SHARED_EXPORT
 bool vrambuf_grow(void *arg, size_t required_size);
 
 SHARED_EXPORT
-void vrambuf_destroy(void *arg);
+bool vrambuf_destroy(void *arg);
 
 SHARED_EXPORT
 CUdeviceptr vrambuf_get(void *arg);

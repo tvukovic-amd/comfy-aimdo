@@ -16,6 +16,19 @@ size_t hostbuf_page_size(void) {
     return page_size;
 }
 
+size_t hostbuf_reserve_granularity(void) {
+    static size_t granularity;
+
+    if (!granularity) {
+        SYSTEM_INFO info;
+
+        GetSystemInfo(&info);
+        granularity = info.dwAllocationGranularity;
+    }
+
+    return granularity;
+}
+
 void *hostbuf_reserve_address_space(size_t size) {
     return VirtualAlloc(NULL, size, MEM_RESERVE, PAGE_NOACCESS);
 }

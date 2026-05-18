@@ -147,7 +147,7 @@ static inline void account_free(CUdeviceptr ptr, CUstream hStream) {
     }
     st_unlock();
 
-    log(ERROR, "%s: could not account free at %p\n", __func__, (void *)(uintptr_t)ptr);
+    log(DEBUG, "%s: could not account free at %p\n", __func__, (void *)(uintptr_t)ptr);
 }
 
 int aimdo_cuda_malloc(CUdeviceptr *devPtr, size_t size,

@@ -10,6 +10,10 @@ SHARED_EXPORT
 void *vrambuf_create(int device, size_t max_size) {
     VramBuffer *buf;
 
+    if (!set_devctx_for_device(device)) {
+        return NULL;
+    }
+
     max_size = CUDA_ALIGN_UP(max_size);
 
     buf = (VramBuffer *)calloc(1, sizeof(*buf) + sizeof(CUmemGenericAllocationHandle) * max_size / VRAM_CHUNK_SIZE);
@@ -36,6 +40,9 @@ bool vrambuf_grow(void *arg, size_t required_size) {
     CUresult err;
 
     if (!buf) {
+        return false;
+    }
+    if (!set_devctx_for_device(buf->device)) {
         return false;
     }
     if (required_size > buf->max_size) {
@@ -88,12 +95,12 @@ CUdeviceptr vrambuf_get(void *arg) {
 }
 
 SHARED_EXPORT
-void vrambuf_destroy(void *arg) {
+bool vrambuf_destroy(void *arg) {
     VramBuffer *buf = (VramBuffer *)arg;
     size_t i;
 
-    if (!buf) {
-        return;
+    if (!buf || !set_devctx_for_device(buf->device)) {
+        return false;
     }
 
     if (buf->allocated > 0) {
@@ -108,4 +115,5 @@ void vrambuf_destroy(void *arg) {
     CHECK_CU(cuMemAddressFree(buf->base_ptr, buf->max_size));
     total_vram_usage -= buf->allocated;
     free(buf);
+    return true;
 }

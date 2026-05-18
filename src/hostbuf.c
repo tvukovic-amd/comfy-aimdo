@@ -3,8 +3,6 @@
 #include "hostbuf-prewarm.h"
 #include "xfer-file.h"
 
-#define HOSTBUF_RESERVE_SIZE (128ULL * G)
-
 typedef struct HostBuffer {
     void *base_address;
     uint64_t size;
@@ -33,7 +31,6 @@ static bool hostbuf_grow(HostBuffer *hostbuf, uint64_t size) {
     }
 
     if (!hostbuf->base_address) {
-        hostbuf->reserved_size = HOSTBUF_RESERVE_SIZE;
         hostbuf->base_address = hostbuf_reserve_address_space((size_t)hostbuf->reserved_size);
         if (!hostbuf->base_address) {
             return false;
@@ -131,14 +128,16 @@ static bool hostbuf_truncate_impl(HostBuffer *hostbuf, uint64_t size, bool do_un
 }
 
 SHARED_EXPORT
-void *hostbuf_allocate(uint64_t prewarm) {
+void *hostbuf_allocate(uint64_t prewarm, uint64_t reserved_size) {
     HostBuffer *hostbuf = calloc(1, sizeof(*hostbuf));
 
     if (!hostbuf) {
         return NULL;
     }
     hostbuf->prewarm = prewarm;
-    log(VERBOSE, "%s: hostbuf=%p prewarm=%llu\n", __func__, (void *)hostbuf, (ull)prewarm);
+    hostbuf->reserved_size = ALIGN_UP(reserved_size + prewarm, hostbuf_reserve_granularity());
+    log(VERBOSE, "%s: hostbuf=%p prewarm=%llu reserved_size=%llu\n",
+        __func__, (void *)hostbuf, (ull)prewarm, (ull)hostbuf->reserved_size);
     return hostbuf;
 }
 
@@ -211,11 +210,13 @@ void *hostbuf_extend(void *hostbuf_ptr, uint64_t size, bool reallocate, int64_t 
 #define HOSTBUF_STREAM_WINDOW (64ULL * 1024ULL * 1024ULL)
 
 SHARED_EXPORT
-bool hostbuf_read_file_slice(void *hostbuf_ptr, uint64_t file_handle, uint64_t file_offset,
+bool hostbuf_read_file_slice(void *hostbuf_ptr, int device,
+                             uint64_t file_handle, uint64_t file_offset,
                              uint64_t size, uint64_t offset,
                              cudaStream_t stream, uint64_t device_ptr) {
-    char *host = (char *)hostbuf_get_raw_address(hostbuf_ptr) + offset;
+    char *host;
 
+    host = (char *)hostbuf_get_raw_address(hostbuf_ptr) + offset;
     if (size == 0) {
         return true;
     }
@@ -224,6 +225,9 @@ bool hostbuf_read_file_slice(void *hostbuf_ptr, uint64_t file_handle, uint64_t f
     }
     if (!stream || !device_ptr) {
         return xfer_file_read(file_handle, file_offset, host, (size_t)size);
+    }
+    if (device < 0 || !set_devctx_for_device(device)) {
+        return false;
     }
     for (uint64_t done = 0; done < size; done += HOSTBUF_STREAM_WINDOW) {
         size_t chunk = (size_t)MIN(HOSTBUF_STREAM_WINDOW, size - done);
