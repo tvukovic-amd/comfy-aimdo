@@ -3,8 +3,6 @@
 #include "hostbuf-prewarm.h"
 #include "xfer-file.h"
 
-#define HOSTBUF_RESERVE_SIZE (128ULL * G)
-
 typedef struct HostBuffer {
     void *base_address;
     uint64_t size;
@@ -33,7 +31,6 @@ static bool hostbuf_grow(HostBuffer *hostbuf, uint64_t size) {
     }
 
     if (!hostbuf->base_address) {
-        hostbuf->reserved_size = HOSTBUF_RESERVE_SIZE;
         hostbuf->base_address = hostbuf_reserve_address_space((size_t)hostbuf->reserved_size);
         if (!hostbuf->base_address) {
             return false;
@@ -131,14 +128,16 @@ static bool hostbuf_truncate_impl(HostBuffer *hostbuf, uint64_t size, bool do_un
 }
 
 SHARED_EXPORT
-void *hostbuf_allocate(uint64_t prewarm) {
+void *hostbuf_allocate(uint64_t prewarm, uint64_t reserved_size) {
     HostBuffer *hostbuf = calloc(1, sizeof(*hostbuf));
 
     if (!hostbuf) {
         return NULL;
     }
     hostbuf->prewarm = prewarm;
-    log(VERBOSE, "%s: hostbuf=%p prewarm=%llu\n", __func__, (void *)hostbuf, (ull)prewarm);
+    hostbuf->reserved_size = ALIGN_UP(reserved_size + prewarm, hostbuf_reserve_granularity());
+    log(VERBOSE, "%s: hostbuf=%p prewarm=%llu reserved_size=%llu\n",
+        __func__, (void *)hostbuf, (ull)prewarm, (ull)hostbuf->reserved_size);
     return hostbuf;
 }
 
