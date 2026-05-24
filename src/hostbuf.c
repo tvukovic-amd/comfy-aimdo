@@ -13,7 +13,7 @@ typedef struct HostBuffer {
     bool mark_cold;
 } HostBuffer;
 
-static bool hostbuf_grow(HostBuffer *hostbuf, uint64_t size) {
+static bool hostbuf_grow(HostBuffer *hostbuf, uint64_t size, bool do_register) {
     size_t page_size = hostbuf_page_size();
     uint64_t target_committed = ALIGN_UP(size + hostbuf->prewarm, page_size);
 
@@ -67,7 +67,8 @@ static bool hostbuf_grow(HostBuffer *hostbuf, uint64_t size) {
          !hostbuf_prewarm_join())) {
         goto fail_decommit;
     }
-    if (!CHECK_CU(cuMemHostRegister((char *)hostbuf->base_address + hostbuf->size,
+    if (do_register &&
+        !CHECK_CU(cuMemHostRegister((char *)hostbuf->base_address + hostbuf->size,
                                     (size_t)(size - hostbuf->size), 0))) {
         goto fail_decommit;
     }
@@ -85,7 +86,9 @@ static bool hostbuf_grow(HostBuffer *hostbuf, uint64_t size) {
     return true;
 
 fail_unregister:
-    CHECK_CU(cuMemHostUnregister((char *)hostbuf->base_address + hostbuf->size));
+    if (do_register) {
+        CHECK_CU(cuMemHostUnregister((char *)hostbuf->base_address + hostbuf->size));
+    }
 fail_decommit:
     if (tail_size) {
         hostbuf_decommit_address_space((char *)hostbuf->base_address + hostbuf->committed_size, tail_size);
@@ -170,7 +173,8 @@ void *hostbuf_get_raw_address(void *hostbuf_ptr) {
 }
 
 SHARED_EXPORT
-void *hostbuf_extend(void *hostbuf_ptr, uint64_t size, bool reallocate, int64_t *size_delta) {
+void *hostbuf_extend(void *hostbuf_ptr, uint64_t size, bool reallocate,
+                     bool do_register, int64_t *size_delta) {
     HostBuffer *hostbuf = (HostBuffer *)hostbuf_ptr;
     uint64_t old_size;
     uint64_t offset;
@@ -183,21 +187,22 @@ void *hostbuf_extend(void *hostbuf_ptr, uint64_t size, bool reallocate, int64_t 
 
     if (reallocate && hostbuf->last_chunk_size) {
         offset = hostbuf->size - hostbuf->last_chunk_size;
-        if (!CHECK_CU(cuMemHostUnregister((char *)hostbuf->base_address + offset))) {
+        if (do_register &&
+            !CHECK_CU(cuMemHostUnregister((char *)hostbuf->base_address + offset))) {
             return NULL;
         }
         hostbuf->size = offset;
     }
 
     offset = hostbuf->size;
-    if (!hostbuf_grow(hostbuf, offset + size)) {
+    if (!hostbuf_grow(hostbuf, offset + size, do_register)) {
         *size_delta = (int64_t)(hostbuf->size - old_size);
         return NULL;
     }
     hostbuf->last_chunk_size = hostbuf->size - offset;
     *size_delta = (int64_t)(hostbuf->size - old_size);
-    log(VERBOSE, "%s: hostbuf=%p request_size=%llu reallocate=%d offset=%llu ptr=%p size_delta=%lld result_size=%llu committed=%llu\n",
-        __func__, (void *)hostbuf, (ull)size, reallocate, (ull)offset,
+    log(VERBOSE, "%s: hostbuf=%p request_size=%llu reallocate=%d do_register=%d offset=%llu ptr=%p size_delta=%lld result_size=%llu committed=%llu\n",
+        __func__, (void *)hostbuf, (ull)size, reallocate, do_register, (ull)offset,
         (char *)hostbuf->base_address + offset, (long long)*size_delta,
         (ull)hostbuf->size, (ull)hostbuf->committed_size);
     return (char *)hostbuf->base_address + offset;
