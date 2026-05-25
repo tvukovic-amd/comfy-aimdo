@@ -55,6 +55,8 @@ _Thread_local AimdoContext *g_devctx;
 static AimdoContext *g_all_devctxs;
 static size_t g_all_devctx_count;
 
+void hostbuf_file_reader_cleanup(void);
+
 SHARED_EXPORT
 void *get_devctx(int device_id) {
     for (size_t i = 0; i < g_all_devctx_count; i++) {
@@ -109,6 +111,7 @@ bool plat_init() {
 
 SHARED_EXPORT
 void plat_cleanup() {
+    hostbuf_file_reader_cleanup();
     xfer_file_cleanup();
     aimdo_teardown_hooks();
     aimdo_cuda_runtime_cleanup();

@@ -33,6 +33,19 @@ if lib is not None:
     ]
     lib.hostbuf_read_file_slice.restype = ctypes.c_bool
 
+    lib.hostbuf_file_reader_read.argtypes = [
+        ctypes.c_int,     # device
+        ctypes.c_uint64,  # handle / fd
+        ctypes.c_uint64,  # file_offset
+        ctypes.c_uint64,  # size
+        ctypes.c_void_p,  # cuda stream
+        ctypes.c_uint64,  # device dest ptr
+        ctypes.c_bool,    # mark_cold
+    ]
+    lib.hostbuf_file_reader_read.restype = ctypes.c_bool
+
+    lib.hostbuf_file_reader_cleanup.argtypes = []
+
     lib.hostbuf_register.argtypes = [ctypes.c_void_p, ctypes.c_uint64, ctypes.c_uint64]
     lib.hostbuf_register.restype = ctypes.c_bool
 
@@ -49,6 +62,17 @@ def _file_handle(file_obj):
 
     fd = file_obj.fileno()
     return msvcrt.get_osfhandle(fd) if os.name == "nt" else fd
+
+
+def read_file_to_device(file_obj, file_offset, size, stream, device_ptr, device, mark_cold=True):
+    if not lib.hostbuf_file_reader_read(int(device), _file_handle(file_obj),
+                                        int(file_offset), int(size), int(stream) or None,
+                                        int(device_ptr), bool(mark_cold)):
+        raise RuntimeError("hostbuf_file_reader_read failed")
+
+
+def cleanup_file_reader():
+    lib.hostbuf_file_reader_cleanup()
 
 
 class HostBuffer:
