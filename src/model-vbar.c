@@ -250,6 +250,30 @@ void vbar_set_watermark_limit(void *devctx, void *vbar, uint64_t size) {
 }
 
 SHARED_EXPORT
+void vbar_set_watermark(void *devctx, void *vbar, uint64_t size) {
+    ModelVBAR *mv = (ModelVBAR *)vbar;
+    size_t watermark = VBAR_GET_PAGE_NR_UP(size);
+
+    set_devctx((AimdoContext *)devctx);
+
+    log(DEBUG, "%s: size=%zu\n", __func__, size);
+    vbars_dirty = true;
+
+    if (watermark > mv->nr_pages) {
+        watermark = mv->nr_pages;
+    }
+
+    if (watermark < mv->watermark) {
+        CHECK_CU(cuCtxSynchronize());
+        for (size_t page_nr = watermark; page_nr < mv->watermark; page_nr++) {
+            mod1(mv, page_nr, true, false);
+        }
+    }
+
+    mv->watermark = watermark;
+}
+
+SHARED_EXPORT
 void vbars_reset_watermark_limits(void *devctx) {
     set_devctx((AimdoContext *)devctx);
     one_time_setup();
