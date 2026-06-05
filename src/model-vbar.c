@@ -327,8 +327,6 @@ uint64_t vbar_get(void *devctx, void *vbar) {
 #define VBAR_FAULT_OOM               1
 #define VBAR_FAULT_ERROR             2
 
-#define VBAR_MISS_ALLOC_GRACE             (512 * M)
-
 SHARED_EXPORT
 int vbar_fault(void *devctx, void *vbar, uint64_t offset, uint64_t size, uint32_t *signature) {
     ModelVBAR *mv = (ModelVBAR *)vbar;
@@ -366,8 +364,9 @@ int vbar_fault(void *devctx, void *vbar, uint64_t offset, uint64_t size, uint32_
 
         if (!miss_alloc_checked) {
             vbars_free_for_vbar(mv, page_end,
-                                (ssize_t)VBAR_MISS_ALLOC_GRACE -
-                                budget_deficit((page_end - page_nr) * VBAR_PAGE_SIZE));
+                                (ssize_t)vram_capacity -
+                                (ssize_t)(total_vram_usage + VRAM_HEADROOM +
+                                          (page_end - page_nr) * VBAR_PAGE_SIZE));
             miss_alloc_checked = true;
 
             if (page_end > mv->watermark) {
