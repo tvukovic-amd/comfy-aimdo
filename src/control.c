@@ -199,7 +199,7 @@ void cleanup(void) {
 }
 
 SHARED_EXPORT
-bool init(const int *cuda_device_ids, size_t num_devices) {
+bool init(const int *cuda_device_ids, const uint64_t *extra_vram_headrooms, size_t num_devices) {
     size_t i;
 
     if (g_all_devctxs ||
@@ -214,6 +214,7 @@ bool init(const int *cuda_device_ids, size_t num_devices) {
         AimdoContext *devctx = &g_all_devctxs[i];
 
         devctx->_device_id = cuda_device_ids[i];
+        devctx->_extra_vram_headroom = extra_vram_headrooms[i];
         devctx->_hostbuf_file_reader_active = -1;
         set_devctx(devctx);
 

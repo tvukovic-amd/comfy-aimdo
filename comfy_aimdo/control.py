@@ -73,7 +73,7 @@ def init(implementation: str | None = None):
 
     lib.aimdo_analyze.argtypes = [ctypes.c_void_p]
 
-    lib.init.argtypes = [ctypes.POINTER(ctypes.c_int), ctypes.c_size_t]
+    lib.init.argtypes = [ctypes.POINTER(ctypes.c_int), ctypes.POINTER(ctypes.c_uint64), ctypes.c_size_t]
     lib.init.restype = ctypes.c_bool
 
     lib.get_devctx.argtypes = [ctypes.c_int]
@@ -87,7 +87,22 @@ def init_devices(device_ids):
     if lib is None:
         return False
 
-    requested = [int(device_id) for device_id in device_ids]
+    requested = []
+    headrooms = []
+    for device_id in device_ids:
+        if isinstance(device_id, tuple):
+            if len(device_id) != 2:
+                raise ValueError("device tuple must be (device_id, extra_vram_headroom)")
+            device_id, headroom = device_id
+        else:
+            headroom = 0
+
+        headroom = int(headroom)
+        if headroom < 0:
+            raise ValueError("extra_vram_headroom must be non-negative")
+        requested.append(int(device_id))
+        headrooms.append(headroom)
+
     if not requested:
         return False
 
@@ -95,7 +110,8 @@ def init_devices(device_ids):
         return False
 
     device_array = (ctypes.c_int * len(requested))(*requested)
-    if lib.init(device_array, len(requested)):
+    headroom_array = (ctypes.c_uint64 * len(headrooms))(*headrooms)
+    if lib.init(device_array, headroom_array, len(requested)):
         devctxs = [get_devctx(device_id) for device_id in requested]
         return True
 
@@ -103,7 +119,9 @@ def init_devices(device_ids):
     lib.plat_cleanup()
     return False
 
-def init_device(device_id: int):
+def init_device(device_id, extra_vram_headroom: int = 0):
+    if extra_vram_headroom:
+        device_id = (device_id, extra_vram_headroom)
     return init_devices([device_id])
 
 def get_devctx(device_id: int):

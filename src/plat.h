@@ -155,11 +155,11 @@ static inline ssize_t budget_deficit(size_t size) {
     deficit_simple = (ssize_t)(total_vram_usage + VRAM_HEADROOM + size) - (ssize_t)vram_capacity;
     deficit_delta = deficit_sync + (ssize_t)total_vram_usage -
                     (ssize_t)total_vram_last_check + (ssize_t)size;
-    deficit = MAX(deficit_simple, deficit_delta);
+    deficit = MAX(deficit_simple, deficit_delta) + (ssize_t)extra_vram_headroom;
     if (deficit > 0) {
-        log(DEBUG, "%s: Prevailing Method: %s Deficit: %zu Alloc Size %zu\n", __func__,
+        log(DEBUG, "%s: Prevailing Method: %s Deficit: %zu Extra Headroom: %zu Alloc Size %zu\n", __func__,
             deficit_simple > deficit_delta ? "simple" : prevailing_deficit_method,
-            (size_t)deficit / M, size / M);
+            (size_t)deficit / M, (size_t)extra_vram_headroom / M, size / M);
     }
     return deficit;
 }
