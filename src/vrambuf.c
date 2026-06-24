@@ -14,6 +14,26 @@
 #if defined(__HIP_PLATFORM_AMD__) && defined(_WIN32)
 static VramBuffer *g_va_pool;
 static Mutex g_va_pool_lock;
+static INIT_ONCE g_va_pool_lock_once = INIT_ONCE_STATIC_INIT;
+
+static BOOL CALLBACK init_va_pool_lock(PINIT_ONCE once, PVOID param, PVOID *ctx) {
+    (void)once;
+    (void)param;
+    g_va_pool_lock = mutex_create();
+    if (!g_va_pool_lock) {
+        return FALSE;
+    }
+    *ctx = (PVOID)g_va_pool_lock;
+    return TRUE;
+}
+
+static Mutex get_va_pool_lock(void) {
+    PVOID ctx = NULL;
+    if (!InitOnceExecuteOnce(&g_va_pool_lock_once, init_va_pool_lock, NULL, &ctx)) {
+        return NULL;
+    }
+    return (Mutex)ctx;
+}
 #endif
 
 SHARED_EXPORT
@@ -27,19 +47,20 @@ void *vrambuf_create(int device, size_t max_size) {
     max_size = CUDA_ALIGN_UP(max_size);
 
 #if defined(__HIP_PLATFORM_AMD__) && defined(_WIN32)
-    if (!g_va_pool_lock) {
-        g_va_pool_lock = mutex_create();
+    Mutex pool_lock = get_va_pool_lock();
+    if (!pool_lock) {
+        return NULL;
     }
-    mutex_lock(g_va_pool_lock);
+    mutex_lock(pool_lock);
     for (VramBuffer **p = &g_va_pool; *p; p = &(*p)->next) {
         if ((*p)->device == device && (*p)->max_size == max_size) {
             buf = *p;
             *p = buf->next;
-            mutex_unlock(g_va_pool_lock);
+            mutex_unlock(pool_lock);
             return (void *)buf;
         }
     }
-    mutex_unlock(g_va_pool_lock);
+    mutex_unlock(pool_lock);
 #endif
 
     buf = (VramBuffer *)calloc(1, sizeof(*buf) + sizeof(CUmemGenericAllocationHandle) * max_size / VRAM_CHUNK_SIZE);
@@ -144,10 +165,14 @@ bool vrambuf_destroy(void *arg) {
     /* VRAM freed; keep the VA reservation and park it for reuse. */
     buf->allocated = 0;
     buf->handle_count = 0;
-    mutex_lock(g_va_pool_lock);
+    Mutex pool_lock = get_va_pool_lock();
+    if (!pool_lock) {
+        return false;
+    }
+    mutex_lock(pool_lock);
     buf->next = g_va_pool;
     g_va_pool = buf;
-    mutex_unlock(g_va_pool_lock);
+    mutex_unlock(pool_lock);
     return true;
 #else
     CHECK_CU(cuMemAddressFree(buf->base_ptr, buf->max_size));
