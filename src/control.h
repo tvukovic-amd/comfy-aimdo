@@ -45,6 +45,9 @@ typedef struct AimdoContext {
     void *_size_table_lock;
     HostbufFileReaderSlot _hostbuf_file_reader_slots[HOSTBUF_FILE_READER_SLOTS];
     int _hostbuf_file_reader_active;
+#if defined(__HIP_PLATFORM_AMD__) && defined(_WIN32)
+    VramBuffer *_va_pool;
+#endif
 #if defined(_WIN32) || defined(_WIN64)
     void *_wddm_adapter; /* IDXGIAdapter3* */
     uint64_t _wddm_timestamp_last_check;
@@ -74,6 +77,9 @@ bool set_devctx_for_current_cuda_device(void);
 #define vmm_table                   (g_devctx->_vmm_table)
 #define size_table                  (g_devctx->_size_table)
 #define size_table_lock             (g_devctx->_size_table_lock)
+#if defined(__HIP_PLATFORM_AMD__) && defined(_WIN32)
+#define va_pool                     (g_devctx->_va_pool)
+#endif
 #if defined(_WIN32) || defined(_WIN64)
 #define g_wddm_adapter              (*(IDXGIAdapter3 **)&g_devctx->_wddm_adapter)
 #define wddm_timestamp_last_check   (g_devctx->_wddm_timestamp_last_check)
